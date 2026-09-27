@@ -1,0 +1,15 @@
+Antes de tudo atualize o sistema e instale:
+
+sudo apt update
+sudo apt install -y build-essential libcurl4-openssl-dev libcjson-dev
+
+
+O codigo ainda esta mal otimizado(a estimacao de mare), pois ele preve dados continuos, mas ainda está faltando parametros
+A referencia do sensor de mare: 
+- https://assets.marinha.mil.br/chm/sites/www.marinha.mil.br.chm/files/u9461/referencia_tecnica_siscorar-2.0.pdf
+- DOODSON, Arthur Thomas. The harmonic development of the tide-generating potential. Proceedings of the Royal Society of London. Series A, v. 100, n. 704, p. 305-329, 1921.
+
+Infelizmente o V0_u(valor astronomico) da média harmônica está incorreto, pois a cada ano "vai mudar", então eu teria que adaptar isso.
+Provavelmente essa previsão pode ser feito com outros parâmetros(eg. Tide)
+
+Provavelmente vou ter que pesquisar: fórmula clássica de Doodson/Schureman, que leva em consideração isso.

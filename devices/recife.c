@@ -3,6 +3,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include "estimacao_mare.h"
 
 #include <curl/curl.h>
 #include <cjson/cJSON.h>
@@ -895,6 +896,9 @@ static int obter_mare_recife(
     return 1;
 }
 
+
+
+
 /* ============================================================
  * LEITURA DA INFRAESTRUTURA DE DRENAGEM
  * ============================================================
@@ -1606,6 +1610,26 @@ static void ciclo_de_leitura(const DadosDrenagem *drenagem)
     );
 }
 
+/* monitorar usando a serie de fourier pra prever a mare de maneira continua */
+void monitorar_ambiente(void) {
+    time_t agora = time(NULL);
+
+     
+    ResultadoMare mare = calcular_sensor_mare(agora);
+
+    /* Uso dos dados calculados no sensor virtual, basicamente é a exposicao da struct */
+    printf("\n--- SENSOR VIRTUAL DE MARÉ ---");
+    printf("\nAltura Estimada : %.2f m", mare.altura_m);
+    printf("\nTendência       : %.2f m/h", mare.velocidade_m_h);
+    printf("\nEstado Atual    : %s", mare.estado);
+    printf("\n-------------------------------\n");
+
+    /* Aplicação na lógica de risco do Recife Antigo */
+    if (mare.altura_m >= 2.0 && mare.enchente) {
+        printf("[ALERTA] Risco elevado de refluxo de maré nas galerias pluviais!\n");
+    }
+}
+
 
 /* ============================================================
  * FUNÇÃO PRINCIPAL
@@ -1613,7 +1637,8 @@ static void ciclo_de_leitura(const DadosDrenagem *drenagem)
  */
 
 int main(void)
-{
+{   
+    
     CURLcode resultado_curl;
 
     DadosDrenagem drenagem;
@@ -1679,12 +1704,19 @@ int main(void)
     );
 
 
+
+    
     /*
      * Executa continuamente.
      */
     while (1)
-    {
+    {   
         ciclo_de_leitura(&drenagem);
+
+        //caso queira testar a estimação de maré matematicamente continua descomente abaixo :P
+        //monitorar_ambiente();
+
+        
 
         sleep(
             INTERVALO_LEITURA
@@ -1693,7 +1725,6 @@ int main(void)
 
 
     curl_global_cleanup();
-
 
     return EXIT_SUCCESS;
 }

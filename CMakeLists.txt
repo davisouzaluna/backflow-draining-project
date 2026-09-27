@@ -29,13 +29,17 @@ if(NOT CJSON_LIBRARY)
 endif()
 
 add_executable(
-    device_recife
+    device_recife 
     devices/recife.c
+    devices/estimacao_mare.c
 )
+
+
 
 target_include_directories(
     device_recife
     PRIVATE
+        devices
         ${CURL_INCLUDE_DIRS}
         ${CJSON_INCLUDE_DIR}
 )
@@ -43,6 +47,8 @@ target_include_directories(
 target_link_libraries(
     device_recife
     PRIVATE
+        m
         CURL::libcurl
         ${CJSON_LIBRARY}
 )
+
