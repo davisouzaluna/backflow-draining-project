@@ -1,0 +1,4 @@
+Antes de tudo atualize o sistema e instale:
+
+sudo apt update
+sudo apt install -y build-essential libcurl4-openssl-dev libcjson-dev
