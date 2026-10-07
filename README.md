@@ -24,20 +24,28 @@ A ideia central é observar e correlacionar os dados pluviométricos e de maré 
 
 ## 🛠️ PRÉ-REQUISITOS E INSTALAÇÃO
 
-Para compilar e executar o projeto em sistemas derivados do Debian/Ubuntu, é necessário instalar as ferramentas de compilação(`cmake`) e as bibliotecas de desenvolvimento em C (`libcurl` e `cJSON`).Nessa versão é recomendável o acesso à internet.
+Para compilar e executar o projeto em sistemas derivados do Debian/Ubuntu, é necessário instalar as ferramentas de compilação(`cmake`) e as bibliotecas de desenvolvimento em C (`libcurl` e `cJSON`).Nessa versão é recomendável o acesso à internet. O broker MQTT utilizado é o `Mosquitto`.
 
 Abra o terminal e execute:
 
 ```bash
 sudo apt update
-sudo apt install -y build-essential cmake libcurl4-openssl-dev libcjson-dev
+sudo apt install -y build-essential cmake libcurl4-openssl-dev libcjson-dev libmosquitto-dev mosquitto
 ```
+
+Em uma nova janela do terminal ubuntu, rode o mosquitto com a configuração do projeto(essa instância estará bloqueada durante a execução):
+```
+mosquitto -c deploy/mosquitto.conf
+```
+
 Por fim crie o diretório build, caso não esteja criado e compile, conforme os comandos abaixo:
 
 ```bash
 mkdir build && cd build
 cmake .. && make
 ```
+
+O Dashboard é um HTML simples, portanto para acessá-lo basta abrir no navegador o arquivo `index.html` dentro do diretório `dashboard`
 
 ---
 
