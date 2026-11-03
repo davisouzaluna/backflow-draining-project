@@ -1,8 +1,10 @@
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include "config.h"
 #include "http_client.h"
 #include "tempo_util.h"
+#include "log_bruto.h"
 #include "chuva.h"
 
 int chuva_agregar(const RegistroChuva *registros, size_t n, DadosChuva *saida)
@@ -43,25 +45,34 @@ int chuva_obter(const char *url, DadosChuva *saida)
 {
     char *raw;
     RegistroChuva *registros = NULL;
-    int n, ok;
+    HttpMetricas hm;
+    int n, ok = 0;
+    time_t fonte;
 
     if (saida == NULL)
         return 0;
     memset(saida, 0, sizeof(*saida));
 
-    raw = http_get(url);
-    if (raw == NULL)
-        return 0;
-
-    n = json_apac_extrair(raw, CIDADE_ALVO, &registros);
-    free(raw);
-    if (n <= 0) {
+    raw = http_get_ex(url, &hm);
+    if (raw != NULL) {
+        log_bruto_salvar(raw);
+        n = json_apac_extrair(raw, CIDADE_ALVO, &registros);
+        free(raw);
+        if (n > 0)
+            ok = chuva_agregar(registros, (size_t)n, saida);
         free(registros);
-        return 0;
     }
 
-    ok = chuva_agregar(registros, (size_t)n, saida);
-    free(registros);
+    saida->curl_rc = hm.curl_rc;
+    saida->http_code = hm.http_code;
+    saida->fetch_ms = hm.total_ms;
+    saida->connect_ms = hm.connect_ms;
+    saida->ttfb_ms = hm.ttfb_ms;
+    saida->bytes = hm.bytes;
+    saida->idade_dado_s = -1.0;
+    if (saida->ultima_leitura[0] != '\0' &&
+        tempo_epoch_datahora(saida->ultima_leitura, APAC_DATAHORA_UTC, &fonte))
+        saida->idade_dado_s = difftime(time(NULL), fonte);
     return ok;
 }
 

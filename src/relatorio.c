@@ -2,10 +2,10 @@
 #include "config.h"
 #include "relatorio.h"
 
-static void linha_meta(const char *nome, const Avaliacao *a)
+static void linha_meta(const char *nome, const Avaliacao *a, const char *un)
 {
-    printf("  %-20s valor=%.2f meta=%.2f -> %s\n", nome, a->valor, a->meta,
-           analisador_nome_comparacao(a->resultado));
+    printf("  %-16s valor=%.2f %s meta=%.2f %s -> %s\n", nome, a->valor, un,
+           a->meta, un, analisador_nome_comparacao(a->resultado));
 }
 
 void relatorio_imprimir(const LeituraVirtual *l)
@@ -19,10 +19,9 @@ void relatorio_imprimir(const LeituraVirtual *l)
            l->chuva.ultima_leitura);
 
     if (l->mare.disponivel)
-        printf("Mare (tabua): %s %s | %.2f m | dia: %.2f-%.2f m | dif=%ld min\n",
+        printf("Mare (tabua): evento %s %s %.2f m | agora (interp.) %.2f m | dif=%ld min\n",
                l->mare.data, l->mare.hora, l->mare.altura,
-               l->mare.menor_altura_dia, l->mare.maior_altura_dia,
-               l->mare.diferenca_minutos);
+               mare_altura_efetiva(&l->mare), l->mare.diferenca_minutos);
     else
         printf("Mare (tabua): indisponivel\n");
 
@@ -36,10 +35,12 @@ void relatorio_imprimir(const LeituraVirtual *l)
            l->drenagem.pocos_visita, l->drenagem.caixas_gaveta,
            l->drenagem.total_elementos);
 
-    linha_meta("chuva atencao", &a->chuva_atencao);
-    linha_meta("chuva critica", &a->chuva_critica);
-    linha_meta("mare intermediaria", &a->mare_intermediaria);
-    linha_meta("mare alta", &a->mare_alta);
+    printf("Limiares vigentes: chuva=%.2f mm | mare=%.2f m\n",
+           a->limiares.chuva_mm, a->limiares.mare_m);
+    linha_meta("chuva (margem)", &a->chuva_margem, "mm");
+    linha_meta("chuva (limiar)", &a->chuva_limiar, "mm");
+    linha_meta("mare (margem)", &a->mare_margem, "m");
+    linha_meta("mare (limiar)", &a->mare_limiar, "m");
 
     printf("RESULTADO: %s\n", analisador_nome_risco(a->risco));
 }

@@ -2,6 +2,7 @@
 #define ANALISADOR_H
 
 #include "chuva.h"
+#include "limiares.h"
 #include "mare_tabua.h"
 
 typedef enum {
@@ -24,15 +25,19 @@ typedef struct {
 } Avaliacao;
 
 typedef struct {
-    Avaliacao chuva_atencao;
-    Avaliacao chuva_critica;
-    Avaliacao mare_intermediaria;
-    Avaliacao mare_alta;
+    Avaliacao chuva_margem;
+    Avaliacao chuva_limiar;
+    Avaliacao mare_margem;
+    Avaliacao mare_limiar;
     NivelRisco risco;
+    int alerta;
+    double mare_m;
+    Limiares limiares;
 } Analise;
 
 Avaliacao analisador_avaliar(double valor, double meta, int disponivel);
-Analise analisador_executar(const DadosChuva *chuva, const DadosMare *mare);
+Analise analisador_executar(const DadosChuva *chuva, const DadosMare *mare,
+                            Limiares lim);
 const char *analisador_nome_comparacao(ComparacaoMeta c);
 const char *analisador_nome_risco(NivelRisco r);
 

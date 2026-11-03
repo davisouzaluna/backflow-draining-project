@@ -1,3 +1,4 @@
+#include <string.h>
 #include "config.h"
 #include "analisador.h"
 
@@ -21,33 +22,36 @@ Avaliacao analisador_avaliar(double valor, double meta, int disponivel)
 
 static NivelRisco classificar_risco(const Analise *a)
 {
-    if (a->chuva_critica.resultado == META_SEM_DADO ||
-        a->mare_alta.resultado == META_SEM_DADO)
+    if (a->chuva_limiar.resultado == META_SEM_DADO ||
+        a->mare_limiar.resultado == META_SEM_DADO)
         return RISCO_INDETERMINADO;
-
-    if (acima(&a->chuva_critica) && acima(&a->mare_alta))
+    if (acima(&a->chuva_limiar) && acima(&a->mare_limiar))
         return RISCO_OCORRENDO;
-
-    if (acima(&a->chuva_critica) || acima(&a->mare_alta) ||
-        (acima(&a->chuva_atencao) && acima(&a->mare_intermediaria)))
+    if (acima(&a->chuva_margem) && acima(&a->mare_margem))
         return RISCO_POTENCIAL;
-
     return RISCO_NENHUM;
 }
 
-Analise analisador_executar(const DadosChuva *chuva, const DadosMare *mare)
+Analise analisador_executar(const DadosChuva *chuva, const DadosMare *mare,
+                            Limiares lim)
 {
     Analise a;
     int ok_chuva = chuva != NULL && chuva->disponivel;
+    int ok_mare = mare != NULL && mare->disponivel;
+    int chuva_dispensavel = lim.chuva_mm <= 0.0;
     double media = ok_chuva ? chuva_media(chuva) : 0.0;
-    double pos = mare_posicao_relativa(mare);
-    int ok_mare = pos >= 0.0;
+    double h = ok_mare ? mare_altura_efetiva(mare) : 0.0;
+    int usa_chuva = ok_chuva || chuva_dispensavel;
 
-    a.chuva_atencao = analisador_avaliar(media, META_CHUVA_ATENCAO_MM, ok_chuva);
-    a.chuva_critica = analisador_avaliar(media, META_CHUVA_CRITICA_MM, ok_chuva);
-    a.mare_intermediaria = analisador_avaliar(pos, META_MARE_INTERMED_POS, ok_mare);
-    a.mare_alta = analisador_avaliar(pos, META_MARE_ALTA_POS, ok_mare);
+    memset(&a, 0, sizeof(a));
+    a.limiares = lim;
+    a.mare_m = h;
+    a.chuva_limiar = analisador_avaliar(media, lim.chuva_mm, usa_chuva);
+    a.chuva_margem = analisador_avaliar(media, lim.chuva_mm * MARGEM_POTENCIAL, usa_chuva);
+    a.mare_limiar = analisador_avaliar(h, lim.mare_m, ok_mare);
+    a.mare_margem = analisador_avaliar(h, lim.mare_m * MARGEM_POTENCIAL, ok_mare);
     a.risco = classificar_risco(&a);
+    a.alerta = a.risco == RISCO_OCORRENDO;
     return a;
 }
 
