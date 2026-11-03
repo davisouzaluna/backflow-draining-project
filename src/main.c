@@ -1,11 +1,15 @@
 #include <signal.h>
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 #include "config.h"
 #include "http_client.h"
 #include "drenagem.h"
 #include "sensor_virtual.h"
 #include "relatorio.h"
+#include "log_csv.h"
+#include "adaptador.h"
+#include "feedback.h"
 #if MQTT_HABILITADO
 #include "mqtt_publisher.h"
 #endif
@@ -18,10 +22,12 @@ static void parar(int sinal)
     rodando = 0;
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
     DadosDrenagem drenagem;
     LeituraVirtual leitura;
+    int uma_vez = argc > 1 && strcmp(argv[1], "--once") == 0;
+    int usar_mqtt = MQTT_HABILITADO && !uma_vez;
 
     signal(SIGINT, parar);
     signal(SIGTERM, parar);
@@ -32,24 +38,36 @@ int main(void)
     }
 
 #if MQTT_HABILITADO
-    if (!mqtt_iniciar())
+    if (usar_mqtt && !mqtt_iniciar()) {
         fprintf(stderr, "Aviso: MQTT indisponivel, seguindo sem publicar.\n");
+        usar_mqtt = 0;
+    }
 #endif
+
+    adaptador_iniciar();
 
     if (!drenagem_carregar(ARQUIVO_DRENAGEM, &drenagem))
         fprintf(stderr, "Aviso: drenagem nao carregada.\n");
 
     while (rodando) {
         sensor_ler(&drenagem, &leitura);
+        feedback_registrar_leitura(&leitura);
         relatorio_imprimir(&leitura);
-#if MQTT_HABILITADO
-        mqtt_publicar_leitura(&leitura);
+#if LOG_HABILITADO
+        log_csv_registrar(&leitura);
 #endif
+#if MQTT_HABILITADO
+        if (usar_mqtt)
+            mqtt_publicar_leitura(&leitura);
+#endif
+        if (uma_vez)
+            break;
         sleep(INTERVALO_LEITURA);
     }
 
 #if MQTT_HABILITADO
-    mqtt_encerrar();
+    if (usar_mqtt)
+        mqtt_encerrar();
 #endif
     http_cleanup();
     return 0;

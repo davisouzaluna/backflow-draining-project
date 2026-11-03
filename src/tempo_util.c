@@ -64,3 +64,44 @@ void tempo_agora_str(char *buffer, size_t tamanho)
     }
     strftime(buffer, tamanho, "%Y-%m-%d %H:%M:%S", t);
 }
+
+static long long dias_desde_epoch(int a, int m, int d)
+{
+    long long y = a - (m <= 2);
+    long long era = (y >= 0 ? y : y - 399) / 400;
+    long long yoe = y - era * 400;
+    long long doy = (153 * (m + (m > 2 ? -3 : 9)) + 2) / 5 + d - 1;
+    long long doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    return era * 146097 + doe - 719468;
+}
+
+int tempo_epoch_datahora(const char *data_hora, int utc, time_t *saida)
+{
+    int a, m, d, h, mi;
+
+    if (data_hora == NULL || saida == NULL ||
+        sscanf(data_hora, "%d-%d-%d %d:%d", &a, &m, &d, &h, &mi) != 5)
+        return 0;
+
+    if (utc) {
+        *saida = (time_t)(dias_desde_epoch(a, m, d) * 86400LL + h * 3600LL + mi * 60LL);
+        return 1;
+    }
+
+    {
+        struct tm t = {0};
+        time_t r;
+
+        t.tm_year = a - 1900;
+        t.tm_mon = m - 1;
+        t.tm_mday = d;
+        t.tm_hour = h;
+        t.tm_min = mi;
+        t.tm_isdst = -1;
+        r = mktime(&t);
+        if (r == (time_t)-1)
+            return 0;
+        *saida = r;
+        return 1;
+    }
+}

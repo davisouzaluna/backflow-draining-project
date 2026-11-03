@@ -37,15 +37,19 @@ void http_cleanup(void)
     curl_global_cleanup();
 }
 
-char *http_get(const char *url)
+char *http_get_ex(const char *url, HttpMetricas *m)
 {
     CURL *curl;
     CURLcode rc;
     Buffer b = {NULL, 0};
+    HttpMetricas local = {0};
+    double t = 0, c = 0, f = 0;
 
     curl = curl_easy_init();
     if (curl == NULL) {
         fprintf(stderr, "Erro ao inicializar CURL.\n");
+        if (m != NULL)
+            *m = local;
         return NULL;
     }
 
@@ -57,7 +61,19 @@ char *http_get(const char *url)
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &b);
 
     rc = curl_easy_perform(curl);
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &local.http_code);
+    curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &t);
+    curl_easy_getinfo(curl, CURLINFO_CONNECT_TIME, &c);
+    curl_easy_getinfo(curl, CURLINFO_STARTTRANSFER_TIME, &f);
     curl_easy_cleanup(curl);
+
+    local.curl_rc = (int)rc;
+    local.total_ms = t * 1000.0;
+    local.connect_ms = c * 1000.0;
+    local.ttfb_ms = f * 1000.0;
+    local.bytes = b.tamanho;
+    if (m != NULL)
+        *m = local;
 
     if (rc != CURLE_OK) {
         fprintf(stderr, "Erro na requisicao HTTP: %s\n", curl_easy_strerror(rc));
@@ -65,4 +81,9 @@ char *http_get(const char *url)
         return NULL;
     }
     return b.dados;
+}
+
+char *http_get(const char *url)
+{
+    return http_get_ex(url, NULL);
 }

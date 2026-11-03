@@ -1,0 +1,21 @@
+# Instalacao (Linux com systemd), ajustando caminhos e usuario:
+#   sudo cp deploy/sensor-virtual.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now sensor-virtual
+#   journalctl -u sensor-virtual -f
+# Reinicia sozinho se o processo morrer e ao religar a maquina/VM.
+[Unit]
+Description=Sensor virtual de refluxo da drenagem (Recife)
+After=network-online.target mosquitto.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sensor
+WorkingDirectory=/opt/backflow-draining-project/build
+ExecStart=/opt/backflow-draining-project/build/device_recife
+Restart=always
+RestartSec=10
+# o log e o estado de limiares ficam em data/; escrita atomica evita corrupcao em queda de energia
+
+[Install]
+WantedBy=multi-user.target

@@ -49,6 +49,24 @@ O Dashboard é um HTML simples, portanto para acessá-lo basta abrir no navegado
 
 ---
 
+## Como o sensor decide
+
+- **Chuva:** média das estações da cidade no feed da APAC (mm).
+- **Maré:** altura da tábua da Marinha **interpolada** (cosseno) entre preamar e baixa-mar, em metros (datum DHN).
+- **Regra:** `OCORRENDO` se chuva ≥ limiar de chuva **e** maré ≥ limiar de maré; `POTENCIAL` se ambos ≥ 70% dos limiares; `INDETERMINADO` se faltar dado.
+- **Limiares:** começam em `LIMIAR_*_INICIAL` (`include/config.h`, provisórios) e **se adaptam** a partir do feedback dos usuários (dashboard: "Sim/Não" e "Estou vendo alagamento agora"). O estado fica em `data/limiares_estado.csv`; cada mensagem de feedback (aceita ou rejeitada) fica em `data/feedback_log.csv`.
+- **Segurança do feedback:** o broker de exemplo é anônimo; qualquer um pode enviar feedback. Há limite por usuário/hora e global, mas isso **não** é defesa contra um ataque coordenado. Para uso real, ative autenticação no Mosquitto e use TLS.
+
+## Executar
+
+```bash
+./build/device_recife            # laço contínuo (padrão: 1 leitura a cada INTERVALO_LEITURA s)
+./build/device_recife --once     # uma leitura e sai (cron / máquinas que ligam às vezes)
+ctest --test-dir build           # testes unitários (adaptador, maré interpolada, feedback)
+```
+
+Coleta com PC que nem sempre fica ligado, validação estatística e checagem do experimento: veja `experimento/README_PROTOCOLO.md`.
+
 ### Referências
 - OBARA, Chloe et al. Drainage failure and associated urban impacts under combined sea-level rise and precipitation scenarios. Scientific Reports, v. 15, n. 1, p. 23436, 2025. 
 

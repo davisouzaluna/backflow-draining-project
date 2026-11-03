@@ -1,0 +1,6 @@
+# Uma linha por ocorrencia. Linhas iniciadas por # sao ignoradas.
+# inicio/fim: horario LOCAL (America/Recife), formato YYYY-MM-DD HH:MM
+# tipo: alagamento | refluxo_observado   |  confianca: alta | media | baixa
+# fonte: CODECIR | Emlurb | noticia | sensor_nivel | observacao_propria
+id,inicio,fim,bairro,lat,lon,fonte,tipo,confianca,observacao
+# 1,2026-11-20 14:30,2026-11-20 16:00,Recife Antigo,,,CODECIR,alagamento,alta,exemplo (apague esta linha)

@@ -1,1 +1,10 @@
 build/
+data/raw/*.json
+data/leituras_log.csv
+data/feedback_log.csv
+data/limiares_estado.csv
+experimento/sintetico/
+experimento/resultados/
+experimento/__pycache__/
+.ipynb_checkpoints/
+.venv/

@@ -24,6 +24,10 @@ td,th{padding:5px 4px;text-align:left;border-bottom:1px solid var(--bd);font-siz
 .bar{height:8px;background:var(--bd);border-radius:4px;overflow:hidden;margin-top:6px}
 .bar i{display:block;height:100%;background:#3b82f6}
 canvas{width:100%;height:140px}
+button{font:inherit;padding:8px 14px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:var(--tx);cursor:pointer;margin-right:8px}
+button.sim{background:#d33;color:#fff;border-color:#d33}button.nao{background:#2a9d4a;color:#fff;border-color:#2a9d4a}
+button:disabled{opacity:.5;cursor:default}
+#perg{display:none;border-left:4px solid #e0a800}
 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#999;margin-right:6px}
 </style>
 </head>
@@ -35,20 +39,34 @@ canvas{width:100%;height:140px}
   </div>
   <div class="c w" id="risco" style="background:#6b7280"><div class="mu" style="color:#fff">Risco de backflow</div><div class="big" id="rn">—</div></div>
   <div class="c"><h2>Chuva (média das estações)</h2><div class="big" id="cm">—</div><div class="mu" id="cd"></div></div>
-  <div class="c"><h2>Maré (tábua)</h2><div class="big" id="mh">—</div><div class="mu" id="md"></div><div class="bar"><i id="mb" style="width:0"></i></div></div>
+  <div class="c"><h2>Maré (tábua, interpolada)</h2><div class="big" id="mh">—</div><div class="mu" id="md"></div><div class="bar"><i id="mb" style="width:0"></i></div></div>
+  <div class="c"><h2>Limiares vigentes</h2><div class="big" id="lm">—</div><div class="mu" id="ld"></div></div>
   <div class="c"><h2>Drenagem</h2><div class="big" id="dt">—</div><div class="mu" id="dd"></div></div>
+  <div class="c w" id="perg"><h2>Ajude a calibrar o sensor</h2>
+    <div id="pq">Está alagando por refluxo na sua rua agora?</div>
+    <div style="margin-top:10px"><button class="sim" id="bs">Sim, está alagando</button><button class="nao" id="bn">Não</button></div>
+    <div class="mu" id="pm" style="margin-top:6px"></div></div>
+  <div class="c w"><h2>Reportar</h2>
+    <button id="br">Estou vendo alagamento agora</button>
+    <span class="mu" id="rm"></span>
+    <div class="mu" id="fb" style="margin-top:8px"></div></div>
   <div class="c w"><h2>Metas</h2>
     <table><thead><tr><th>Critério</th><th>Valor</th><th>Meta</th><th>Situação</th></tr></thead><tbody id="mt"></tbody></table></div>
-  <div class="c w"><h2>Histórico (chuva em mm, maré em posição 0–1)</h2><canvas id="cv"></canvas></div>
+  <div class="c w"><h2>Histórico (chuva em mm, maré em m; linha tracejada = limiar de maré)</h2><canvas id="cv"></canvas></div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/mqtt@5/dist/mqtt.min.js"></script>
 <script>
 const BROKER = "ws://localhost:9001";
 const T_LEITURA = "backflow/recife/leitura";
 const T_STATUS = "backflow/recife/status";
+const T_FB = "backflow/recife/feedback";
+const MARE_ESC = 3.0;
 const MAX = 120;
 const COR = ["#6b7280", "#2a9d4a", "#e0a800", "#d33"];
-const NOMES = {chuva_atencao:"Chuva — atenção (mm)", chuva_critica:"Chuva — crítica (mm)", mare_intermediaria:"Maré — intermediária (pos.)", mare_alta:"Maré — alta (pos.)"};
+const NOMES = {chuva_margem:"Chuva — margem (mm)", chuva_limiar:"Chuva — limiar (mm)", mare_margem:"Maré — margem (m)", mare_limiar:"Maré — limiar (m)"};
+let ultimo = null, respondido = null;
+let USER = "anon";
+try { USER = localStorage.getItem("bf_user") || ("anon-" + Math.random().toString(36).slice(2, 10)); localStorage.setItem("bf_user", USER); } catch (e) { USER = "anon-" + Math.random().toString(36).slice(2, 10); }
 const hist = [];
 const $ = id => document.getElementById(id);
 const f = (v, n = 2) => Number(v).toFixed(n);
@@ -61,6 +79,33 @@ cli.on("message", (t, m) => {
   if (t === T_STATUS) return status(s === "online", s === "online" ? "sensor online" : "sensor offline");
   try { render(JSON.parse(s)); } catch (e) { console.error(e); }
 });
+
+function enviar(obj, msg, el) {
+  cli.publish(T_FB, JSON.stringify(Object.assign({ user: USER }, obj)), { qos: 1 });
+  $(el).textContent = msg;
+}
+
+function pergunta(d) {
+  const ativa = d.pergunta && d.pergunta.ativa;
+  const novo = ativa && respondido !== d.boot_id + ":" + d.seq;
+  $("perg").style.display = novo ? "block" : "none";
+  if (novo) {
+    $("pq").textContent = d.risco.alerta
+      ? "O sensor indica refluxo de drenagem na região. Está alagando por refluxo na sua rua agora?"
+      : "O sensor NÃO indica refluxo agora. Está alagando por refluxo na sua rua?";
+    $("pm").textContent = "";
+  }
+}
+
+function responder(houve) {
+  if (!ultimo) return;
+  enviar({ ref_boot: ultimo.boot_id, ref_seq: ultimo.seq, houve }, "Obrigado! Resposta enviada.", "pm");
+  respondido = ultimo.boot_id + ":" + ultimo.seq;
+  setTimeout(() => { $("perg").style.display = "none"; }, 1200);
+}
+$("bs").onclick = () => responder(true);
+$("bn").onclick = () => responder(false);
+$("br").onclick = () => enviar({ tipo: "espontaneo", houve: true }, " Relato enviado, obrigado.", "rm");
 
 function status(ok, txt) {
   $("dot").style.background = ok ? "#2a9d4a" : "#d33";
@@ -76,9 +121,16 @@ function render(d) {
   $("cd").textContent = `maior ${f(d.chuva.maior_mm)} mm · ${d.chuva.estacoes} estações · ${d.chuva.ultima_leitura || "—"}`;
 
   const m = d.mare;
-  $("mh").textContent = m.disponivel ? f(m.altura_m) + " m" : "sem dado";
-  $("md").textContent = m.disponivel ? `${m.evento_data} ${m.evento_hora} · dia ${f(m.min_dia_m)}–${f(m.max_dia_m)} m` : "";
-  $("mb").style.width = m.disponivel && m.posicao >= 0 ? f(m.posicao * 100, 0) + "%" : "0";
+  $("mh").textContent = m.disponivel ? f(m.altura_interp_m) + " m" : "sem dado";
+  $("md").textContent = m.disponivel ? `evento ${m.evento_data} ${m.evento_hora} (${f(m.altura_m)} m) · dif ${m.dif_min} min` : "";
+  $("mb").style.width = m.disponivel ? Math.min(100, m.altura_interp_m / MARE_ESC * 100) + "%" : "0";
+
+  $("lm").textContent = `${f(d.limiares.chuva_mm, 1)} mm · ${f(d.limiares.mare_m)} m`;
+  $("ld").textContent = d.risco.alerta ? "alerta ativo" : "sem alerta";
+  ultimo = d;
+  pergunta(d);
+  const q = d.feedback;
+  $("fb").textContent = `Confirmações: TP ${q.tp} · FP ${q.fp} · FN ${q.fn} · TN ${q.tn} · ajustes de limiar ${q.atualizacoes}`;
 
   $("dt").textContent = d.drenagem.total + " elementos";
   $("dd").textContent = `BL ${d.drenagem.bocas_lobo} · PV ${d.drenagem.pocos_visita} · CG ${d.drenagem.caixas_gaveta}`;
@@ -88,7 +140,7 @@ function render(d) {
     return `<tr><td>${NOMES[k] || k}</td><td>${f(a.valor)}</td><td>${f(a.meta)}</td><td class="${a.resultado}">${a.resultado}</td></tr>`;
   }).join("");
 
-  hist.push({ c: d.chuva.media_mm, p: m.posicao >= 0 ? m.posicao : null });
+  hist.push({ c: d.chuva.media_mm, p: m.disponivel ? m.altura_interp_m : null, lm: d.limiares.mare_m });
   if (hist.length > MAX) hist.shift();
   grafico();
 }
@@ -111,7 +163,11 @@ function grafico() {
   };
   x.clearRect(0, 0, w, h);
   linha("c", "#3b82f6", cmax);
-  linha("p", "#e0a800", 1);
+  linha("p", "#e0a800", MARE_ESC);
+  if (hist.length) {
+    const py = h - (hist[hist.length - 1].lm / MARE_ESC) * (h - 8 * r) - 4 * r;
+    x.setLineDash([6 * r, 4 * r]); x.beginPath(); x.moveTo(0, py); x.lineTo(w, py); x.stroke(); x.setLineDash([]);
+  }
 }
 </script>
 </body>

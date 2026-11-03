@@ -4,6 +4,7 @@
 #include <mosquitto.h>
 #include "config.h"
 #include "payload.h"
+#include "feedback.h"
 #include "mqtt_publisher.h"
 
 static struct mosquitto *cliente;
@@ -16,12 +17,27 @@ static void publicar_status(const char *texto)
 
 static void on_connect(struct mosquitto *m, void *obj, int rc)
 {
+    (void)obj;
+    if (rc == 0) {
+        publicar_status("online");
+#if FEEDBACK_HABILITADO
+        mosquitto_subscribe(m, NULL, MQTT_TOPICO_FEEDBACK, MQTT_QOS);
+#endif
+    } else
+        fprintf(stderr, "MQTT: conexao recusada (rc=%d)\n", rc);
+}
+
+static void on_message(struct mosquitto *m, void *obj,
+                       const struct mosquitto_message *msg)
+{
     (void)m;
     (void)obj;
-    if (rc == 0)
-        publicar_status("online");
-    else
-        fprintf(stderr, "MQTT: conexao recusada (rc=%d)\n", rc);
+#if FEEDBACK_HABILITADO
+    if (msg->payload != NULL && msg->payloadlen > 0 && msg->payloadlen < 1024)
+        feedback_processar((const char *)msg->payload, (size_t)msg->payloadlen);
+#else
+    (void)msg;
+#endif
 }
 
 int mqtt_iniciar(void)
@@ -39,6 +55,7 @@ int mqtt_iniciar(void)
 
     mosquitto_will_set(cliente, MQTT_TOPICO_STATUS, 7, "offline", MQTT_QOS, true);
     mosquitto_connect_callback_set(cliente, on_connect);
+    mosquitto_message_callback_set(cliente, on_message);
     mosquitto_reconnect_delay_set(cliente, 2, 30, true);
 
     if (mosquitto_connect_async(cliente, MQTT_HOST, MQTT_PORTA, MQTT_KEEPALIVE_S)
